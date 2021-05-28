@@ -3,15 +3,20 @@
 
 import sys
 import math
+import numpy as np
 import random
+import logging
 from collections import namedtuple
+
+FORMAT = '%(asctime)s %(levelname)s: %(message)s'
+logging.basicConfig(level=logging.DEBUG, format=FORMAT)
 
 Point = namedtuple("Point", ['x', 'y'])
 
-initialTemperature = 120
-lowestTemperature = 0.001
+initialTemperature = 100
+lowestTemperature =  1e-7
 # change the temperature when rejecting the new status for this limit number
-noChange = 150
+limitReject = 150
 iteration = 500
 
 
@@ -21,13 +26,14 @@ def length(point1, point2):
 
 def solve_it(input_data):
     # Modify this code to run your optimization algorithm
+    logging.info('=== start to solve ===')
 
     # parse the input
     lines = input_data.split('\n')
 
     # the number of cities needed to visist
     nodeCount = int(lines[0])
-    print("nodeCount=" + str(nodeCount))
+    logging.debug('number of cities:' + str(nodeCount))
 
     points = []
     for i in range(1, nodeCount+1):
@@ -37,7 +43,6 @@ def solve_it(input_data):
 
     # calulate the distance matrix
     matrix = distMatrix(points, nodeCount)
-    # print(matrix)
 
     # build a trivial solution (initial solution)
     # depends on the number of cities
@@ -48,35 +53,42 @@ def solve_it(input_data):
         # nearest neighborhood
         solution = initialSolution(nodeCount, matrix)
 
+    obj = calculateLength(points, nodeCount, solution)
     bestSolution = solution
-    bestObj = calculateLength(points, nodeCount, bestSolution)
-    initialTemperature = 120
+    bestObj = obj
+    
+    currentTemperature = initialTemperature
+    while (currentTemperature > lowestTemperature):
+        countForReject = 0
+        countForIteration = 0
+        while(countForReject < limitReject and countForIteration < iteration):
 
-    count = 0
-    while(count < 1000):
-        # random
-        # obj = calculateLength(points, nodeCount, solution)
-        # solution = twoOpt(solution, nodeCount, points, obj)
-        # print(count)
+            # search neighbors
+            neighborSolution = searchNeighbors(solution)
+            neighborObj = calculateLength(points, nodeCount, neighborSolution)
 
-        # if(nodeCount < 201):
-        #     # minchang
-        #     solution = minChange(solution, nodeCount, matrix)
-        #     currentLength = calculateLength(points, nodeCount, solution)
-        # elif (nodeCount < 1890):
-        # simulated annealing
-        if count % 10 == 0:
-            initialTemperature = initialTemperature * 0.8
-        solution = twoOpt(solution, nodeCount, matrix, initialTemperature)
-        currentLength = calculateLength(points, nodeCount, solution)
+            # the delta between neighbor and current
+            delta = neighborObj - obj
 
-        if currentLength < bestObj:
-            bestSolution = solution
-            bestObj = calculateLength(points, nodeCount, bestSolution)
+            # the probability threshod
+            threshold = np.random.rand()
 
-        # print('--- best:' +str(bestObj))
+            # calculate the exponential function
+            expValue = np.exp(-delta / currentTemperature)
 
-        count += 1
+            # whether to accept this neighbor
+            if delta < 0 or expValue > threshold:
+                solution = neighborSolution
+                obj = neighborObj
+                if obj < bestObj:
+                    bestObj = obj
+                    bestSolution = solution
+                    logging.debug('update best solution obj:' + str(bestObj))
+            else:
+                countForReject = countForReject + 1
+            
+            countForIteration = countForIteration + 1
+        currentTemperature = 0.99 * currentTemperature
 
     return prepareOutput(bestObj, bestSolution)
 
@@ -96,6 +108,42 @@ def distMatrix(points, nodeCount):
             matrix[i][j] = length(points[i], points[j])
             matrix[j][i] = matrix[i][j]
     return matrix
+
+
+def searchNeighbors(solution):
+    neighborStrategy = np.random.randint(3)
+    if neighborStrategy == 0:
+        neighborSolution = swap(solution)
+    elif neighborStrategy == 1:
+        neighborSolution = reverse(solution)
+    else:
+        neighborSolution = transpose(solution)
+    return neighborSolution
+
+
+def swap(solution):
+    i, j = np.random.randint(0, len(solution) - 1, 2)
+    if i >= j:
+        i, j = j, i + 1
+    solution[i], solution[j] = solution[j], solution[i]
+    return solution
+
+
+def reverse(solution):
+    i, j = np.random.randint(0, len(solution) - 1, 2)
+    if i >= j:
+        i, j = j, i + 1
+    solution[i:j] = solution[i:j][::-1]
+    return solution
+
+
+def transpose(solution):
+    i, j, k = sorted(np.random.randint(0, len(solution) - 2, 3))
+    j += 1
+    k += 2
+    slice1, slice2, slice3, slice4 = solution[:i], solution[i:j], solution[j:k], solution[k:]
+    solution = slice1 + slice3 + slice2 + slice4
+    return solution
 
 
 def twoOpt(solution, nodeCount, matrix, temperature):
