@@ -1,14 +1,23 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+import sys
 import math
 import random
 from collections import namedtuple
 
 Point = namedtuple("Point", ['x', 'y'])
 
+initialTemperature = 120
+lowestTemperature = 0.001
+# change the temperature when rejecting the new status for this limit number
+noChange = 150
+iteration = 500
+
+
 def length(point1, point2):
     return math.sqrt((point1.x - point2.x)**2 + (point1.y - point2.y)**2)
+
 
 def solve_it(input_data):
     # Modify this code to run your optimization algorithm
@@ -16,44 +25,39 @@ def solve_it(input_data):
     # parse the input
     lines = input_data.split('\n')
 
+    # the number of cities needed to visist
     nodeCount = int(lines[0])
-    temperature = 15000
+    print("nodeCount=" + str(nodeCount))
 
     points = []
     for i in range(1, nodeCount+1):
         line = lines[i]
         parts = line.split()
         points.append(Point(float(parts[0]), float(parts[1])))
+
+    # calulate the distance matrix
     matrix = distMatrix(points, nodeCount)
-    # build a trivial solution (initial solution)
-
-
     # print(matrix)
-    print("nodeCount=" +str(nodeCount))
 
+    # build a trivial solution (initial solution)
+    # depends on the number of cities
     if nodeCount > 1890:
-        solution = range(nodeCount)
-        obj = calculateLength(points, nodeCount, solution)
-        # prepare the solution in the specified output format
-        output_data = '%.2f' % obj + ' ' + str(0) + '\n'
-        output_data += ' '.join(map(str, solution))
-
-        return output_data
-
         # visit the nodes in the order they appear in the file
-    solution = initialSolution(nodeCount,matrix)
+        solution = range(0, nodeCount)
+    else:
+        # nearest neighborhood
+        solution = initialSolution(nodeCount, matrix)
 
     bestSolution = solution
     bestObj = calculateLength(points, nodeCount, bestSolution)
+    initialTemperature = 120
 
-    # calculate the length of the tour
     count = 0
     while(count < 1000):
         # random
         # obj = calculateLength(points, nodeCount, solution)
         # solution = twoOpt(solution, nodeCount, points, obj)
         # print(count)
-
 
         # if(nodeCount < 201):
         #     # minchang
@@ -62,26 +66,28 @@ def solve_it(input_data):
         # elif (nodeCount < 1890):
         # simulated annealing
         if count % 10 == 0:
-            temperature = temperature * 0.8 
-        solution = twoOpt(solution, nodeCount, matrix, temperature)
+            initialTemperature = initialTemperature * 0.8
+        solution = twoOpt(solution, nodeCount, matrix, initialTemperature)
         currentLength = calculateLength(points, nodeCount, solution)
 
         if currentLength < bestObj:
             bestSolution = solution
             bestObj = calculateLength(points, nodeCount, bestSolution)
 
-
         # print('--- best:' +str(bestObj))
 
-        count +=1
+        count += 1
+
+    return prepareOutput(bestObj, bestSolution)
 
 
-
+def prepareOutput(obj, solution):
     # prepare the solution in the specified output format
-    output_data = '%.2f' % bestObj + ' ' + str(0) + '\n'
-    output_data += ' '.join(map(str, bestSolution))
+    output_data = '%.2f' % obj + ' ' + str(0) + '\n'
+    output_data += ' '.join(map(str, solution))
 
     return output_data
+
 
 def distMatrix(points, nodeCount):
     matrix = [[0 for i in range(nodeCount)] for i in range(nodeCount)]
@@ -91,18 +97,20 @@ def distMatrix(points, nodeCount):
             matrix[j][i] = matrix[i][j]
     return matrix
 
+
 def twoOpt(solution, nodeCount, matrix, temperature):
     i = random.randint(0, nodeCount - 2)
     j = i
-    while(j==i):
+    while(j == i):
         j = random.randint(0, nodeCount - 2)
 
-    change = matrix[solution[i]][solution[j]] + matrix[solution[i+1]][solution[j+1]] - matrix[solution[i]][solution[i+1]] - matrix[solution[j]][solution[j+1]]
+    change = matrix[solution[i]][solution[j]] + matrix[solution[i+1]][solution[j+1]
+                                                                      ] - matrix[solution[i]][solution[i+1]] - matrix[solution[j]][solution[j+1]]
     if(change < 0):
         # print('small: swap')
         return swapTwo(solution, i, j)
     else:
-        threshold= random.uniform(0, 1)
+        threshold = random.uniform(0, 1)
         if math.exp((-1)*change/temperature) > threshold:
             # print("change: "+ str(change) + " temp: " + str(temperature) + " prob:" + str(math.exp((-1)*change/temperature))+ " threshold:" + str(threshold) )
             return swapTwo(solution, i, j)
@@ -110,13 +118,12 @@ def twoOpt(solution, nodeCount, matrix, temperature):
             return solution
 
 
-    return solution
-
 def swapTwo(solution, i, j):
     tmp = solution[i+1]
     solution[i+1] = solution[j]
     solution[j] = tmp
     return solution
+
 
 def minChange(solution, nodeCount, matrix):
     minchange = 0
@@ -124,7 +131,8 @@ def minChange(solution, nodeCount, matrix):
     minj = 0
     for i in range(0, nodeCount-3):
         for j in range(i+2, nodeCount-1):
-            change = matrix[solution[i]][solution[j]] + matrix[solution[i+1]][solution[j+1]] - matrix[solution[i]][solution[i+1]] - matrix[solution[j]][solution[j+1]]
+            change = matrix[solution[i]][solution[j]] + matrix[solution[i+1]][solution[j+1]
+                                                                              ] - matrix[solution[i]][solution[i+1]] - matrix[solution[j]][solution[j+1]]
             # print("i:" + str(i) + " j:" + str(j) + " change:" + str(change) + " minchange:" + str(minchange))
             if minchange > change:
                 # print(" change:" + str(change) + " minchange:" + str(minchange))
@@ -142,8 +150,10 @@ def minChange(solution, nodeCount, matrix):
         # print(solution)
     return solution
 
+
 def initialSolution(nodeCount, matrix):
     solution = []
+    # the cities thats is not in solution now
     togo = list(range(nodeCount))
     # print("togo: " + str(togo))
     first = togo.pop(0)
@@ -151,7 +161,6 @@ def initialSolution(nodeCount, matrix):
     # print("solution: "+ str(solution))
     for i in range(nodeCount - 1):
         # print("-----")
-        solution[i]
         minLength = sys.maxsize
         minj = solution[i]
         for j in togo:
@@ -165,14 +174,14 @@ def initialSolution(nodeCount, matrix):
 
     return list(range(0, nodeCount))
 
-# calculate the length of the tour
+
 def calculateLength(points, nodeCount, solution):
+    # calculate the length of the tour
     obj = length(points[solution[-1]], points[solution[0]])
     for index in range(0, nodeCount-1):
         obj += length(points[solution[index]], points[solution[index+1]])
     return obj
 
-import sys
 
 if __name__ == '__main__':
     import sys
@@ -183,4 +192,3 @@ if __name__ == '__main__':
         print(solve_it(input_data))
     else:
         print('This test requires an input file.  Please select one from the data directory. (i.e. python solver.py ./data/tsp_51_1)')
-
