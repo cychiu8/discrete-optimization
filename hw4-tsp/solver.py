@@ -45,13 +45,7 @@ def solve_it(input_data):
     matrix = distMatrix(points, nodeCount)
 
     # build a trivial solution (initial solution)
-    # depends on the number of cities
-    if nodeCount > 1890:
-        # visit the nodes in the order they appear in the file
-        solution = range(0, nodeCount)
-    else:
-        # nearest neighborhood
-        solution = initialSolution(nodeCount, matrix)
+    solution = initialSolution(matrix)       
 
     obj = calculateLength(points, nodeCount, solution)
     bestSolution = solution
@@ -199,29 +193,33 @@ def minChange(solution, nodeCount, matrix):
     return solution
 
 
-def initialSolution(nodeCount, matrix):
+def initialSolution(matrix):
+    numCitiest = len(matrix)
     solution = []
+
+    # depends on the number of cities
+    if numCitiest > 1890:
+        # visit the nodes in the order they appear in the file
+        solution = list(range(0, numCitiest))
+        return solution
+
+    # nearest neighborhood
     # the cities thats is not in solution now
-    togo = list(range(nodeCount))
-    # print("togo: " + str(togo))
+    togo = list(range(numCitiest))
+
     first = togo.pop(0)
     solution.append(first)
-    # print("solution: "+ str(solution))
-    for i in range(nodeCount - 1):
-        # print("-----")
+
+    for i in range(numCitiest - 1):
         minLength = sys.maxsize
         minj = solution[i]
         for j in togo:
             if matrix[solution[i]][j] < minLength:
                 minLength = matrix[solution[i]][j]
                 minj = j
-                # print("j: " + str(j) + " minj:" + str(minj))
         solution.append(minj)
         togo.remove(minj)
     return solution
-
-    return list(range(0, nodeCount))
-
 
 def calculateLength(points, nodeCount, solution):
     # calculate the length of the tour
